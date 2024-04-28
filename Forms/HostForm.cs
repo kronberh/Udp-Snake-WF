@@ -1,7 +1,8 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Windows.Forms;
+using System.Text.Json;
+using ns_Data;
 using ns_SnakeGame;
 
 namespace Coursework_OnlineSnake
@@ -20,15 +21,48 @@ namespace Coursework_OnlineSnake
         {
             InitializeComponent();
             this.listener = listener;
-            this.Text = $"Host: {(IPEndPoint)this.listener.Client.LocalEndPoint}";
-            this.Load += (senver, e) => grid?.ClearSelection();
+            IPAddressCopyButton.Text = $"Copy IP: {(IPEndPoint)this.listener.Client.LocalEndPoint}";
+            IPAddressCopyButton.Click += IPAddressCopyButton_Click;
+            this.Load += (sender, e) => grid.ClearSelection();
             this.FormClosed += (sender, e) =>
             {
                 // todo await send HOSTISLEAVING message
                 listener.Close();
                 Application.OpenForms[0]?.Show();
             };
-            this.KeyDown += (sender, e) =>
+            snakeColor = selectedColor;
+            fieldColors = new Color[fieldSize, fieldSize];
+            grid = new()
+            {
+                ColumnCount = fieldColors.GetLength(0),
+                RowCount = fieldColors.GetLength(1) + 1,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeColumns = false,
+                AllowUserToResizeRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                BorderStyle = BorderStyle.None,
+                CellBorderStyle = DataGridViewCellBorderStyle.None,
+                ColumnHeadersVisible = false,
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                RowHeadersVisible = false
+            };
+            grid.RowTemplate.Resizable = DataGridViewTriState.True;
+            grid.CellFormatting += (sender, e) => e.CellStyle.BackColor = fieldColors[e.RowIndex, e.ColumnIndex];
+            grid.SizeChanged += (sender, e) =>
+            {
+                int newRowHeight = grid.Size.Height / grid.RowCount;
+                foreach (DataGridViewRow row in grid.Rows)
+                {
+                    row.Height = newRowHeight;
+                }
+            };
+            grid.SelectionChanged += (sender, e) =>
+            {
+                grid.ClearSelection();
+            };
+            grid.KeyDown += (sender, e) =>
             {
                 switch (e.KeyCode)
                 {
@@ -48,35 +82,6 @@ namespace Coursework_OnlineSnake
                     case Keys.Right:
                         game?.HostSnake.SetDirection(Direction.DOWN);
                         break;
-                }
-            };
-            snakeColor = selectedColor;
-            fieldColors = new Color[fieldSize, fieldSize];
-            grid = new()
-            {
-                ColumnCount = fieldColors.GetLength(0),
-                RowCount = fieldColors.GetLength(1) + 1,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                AllowUserToResizeColumns = false,
-                AllowUserToResizeRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BorderStyle = BorderStyle.None,
-                CellBorderStyle = DataGridViewCellBorderStyle.None,
-                ColumnHeadersVisible = false,
-                Dock = DockStyle.Fill,
-                Enabled = false,
-                ReadOnly = true,
-                RowHeadersVisible = false
-            };
-            grid.RowTemplate.Resizable = DataGridViewTriState.True;
-            grid.CellFormatting += (sender, e) => e.CellStyle.BackColor = fieldColors[e.RowIndex, e.ColumnIndex];
-            grid.SizeChanged += (sender, e) =>
-            {
-                int newRowHeight = grid.Size.Height / grid.RowCount;
-                foreach (DataGridViewRow row in grid.Rows)
-                {
-                    row.Height = newRowHeight;
                 }
             };
             this.Controls.Add(grid);
@@ -101,64 +106,52 @@ namespace Coursework_OnlineSnake
                         snakeColor
                     );
                 });
-            };
-            Task.Run(() =>
-            {
-                while (this.listener != null)
+                Task.Run(() =>
                 {
-                    IPEndPoint remote = new(IPAddress.Any, 0);
-                    try
+                    while (this.listener != null)
                     {
-                        byte[] requestData = this.listener.Receive(ref remote);
-                        string request = Encoding.UTF8.GetString(requestData);
-                        if (request.StartsWith("Pls set my direction to "))
+                        IPEndPoint remote = new(IPAddress.Any, 0);
+                        try
                         {
-                            if (Enum.TryParse(typeof(Direction), request.Split().Last(), true, out object? direction))
+                            string json = Encoding.UTF8.GetString(listener.Receive(ref remote));
+                            CommunicationUnit request = JsonSerializer.Deserialize<CommunicationUnit>(json, PackageData.SerializerOptions);
+                            if (request?.Subject == "Set direction")
                             {
-                                game.AcceptSetSnakeDirectionSignal(remote, (Direction)direction);
-                                // todo send OK acknowledgement
+                                game.AcceptSetSnakeDirectionSignal(remote, ((JsonElement)request.Attachment).Deserialize<Direction>());
+                            }
+                            else if (request?.Subject == "Revive")
+                            {
+                                SnakeGame.AwakeSnake(game.PlayerByRemote(remote), true);
+                            }
+                            else if (request?.Subject == "Join lobby")
+                            {
+                                Color color = ((JsonElement)request.Attachment).Deserialize<Color>(PackageData.SerializerOptions);
+                                CommunicationUnit response = new("Welcome");
+                                this.listener.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)), remote);
+                                game.AddPlayer(remote, color);
+                            }
+                            else if (request?.Subject == "Leave lobby")
+                            {
+                                game.RemovePlayer(remote);
                             }
                             else
                             {
-                                // todo send ERROR acknowledgement
+                                // send IDK WYM message/acknowledgement
                             }
                         }
-                        else if (request == "Pls revive me")
+                        catch (ObjectDisposedException)
                         {
-                            SnakeGame.AwakeSnake(game.PlayerByRemote(remote), true);
-                            // todo send OK OK acknowledgement
+                            game.Dispose();
+                            break;
                         }
-                        else if (request.StartsWith("Hello, I'm the new player, and my color is "))
-                        {
-                            Color color = ColorTranslator.FromHtml(request.Split().Last());
-                            if (color == Color.Empty)
-                            {
-                                color = Color.Black;
-                            }
-                            byte[] responseData = Encoding.UTF8.GetBytes("Welcome new player!");
-                            this.listener.Send(responseData, remote);
-                            game.AddPlayer(remote, color);
-                        }
-                        else if (request == "Im leaving")
-                        {
-                            game.RemovePlayer(remote);
-                        }
-                        else
-                        {
-                            // send IDK WYM message/acknowledgement
-                        }
+                        catch { /* occures once when listener is disposed min function; needs to be ignored */ }
                     }
-                    catch (ObjectDisposedException)
-                    {
-                        game.Dispose();
-                        break;
-                    }
-                    catch
-                    {
-                        // todo send SOME ERROR message
-                    }
-                }
-            });
+                });
+            };
+        }
+        private void IPAddressCopyButton_Click(object? sender, EventArgs e)
+        {
+            Clipboard.SetText(((IPEndPoint)listener.Client.LocalEndPoint).Address.ToString());
         }
     }
 }

@@ -36,7 +36,6 @@ namespace ns_SnakeGame
                     MoveHeadEvent = MoveHeadRight;
                     break;
                 case 1:
-
                     for (int i = 0; i < this.startLength; i++)
                     {
                         bodyCoords.AddLast(new Point(startPoint.X, startPoint.Y - 1));
@@ -44,7 +43,6 @@ namespace ns_SnakeGame
                     MoveHeadEvent = MoveHeadLeft;
                     break;
                 case 2:
-
                     for (int i = 0; i < this.startLength; i++)
                     {
                         bodyCoords.AddLast(new Point(startPoint.X + 1, startPoint.Y));
@@ -52,7 +50,6 @@ namespace ns_SnakeGame
                     MoveHeadEvent = MoveHeadUp;
                     break;
                 case 3:
-
                     for (int i = 0; i < this.startLength; i++)
                     {
                         bodyCoords.AddLast(new Point(startPoint.X - 1, startPoint.Y));
