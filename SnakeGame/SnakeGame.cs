@@ -80,7 +80,7 @@ namespace ns_SnakeGame
             {
                 collisionField[coord.Y, coord.X] = false;
             }
-            int fadeSteps = 4;
+            int fadeSteps = 5;
             for (int i = fadeSteps - 1; i >= 0; i--)
             {
                 lock (packageData)
@@ -97,7 +97,7 @@ namespace ns_SnakeGame
                     }
                 }
                 ChangeFieldAndPrint();
-                Thread.Sleep(200);
+                Thread.Sleep(250);
             }
         }
         void SpawnFoodIfOneConsumedBy(SnakeClient snakeClient)
@@ -137,11 +137,16 @@ namespace ns_SnakeGame
                 message.Attachment = packageData.ToList();
             }
             string json = JsonSerializer.Serialize(message, PackageData.SerializerOptions);
-            foreach (IPEndPoint player in Players.Skip(1).Select(x => x.Controller))
+            foreach (IPEndPoint remote in Players.Skip(1).Select(x => x.Controller))
             {
-                // todo make sends-recieves a separate tasks for async awaiting responses\try{
-                Host?.SendAsync(Encoding.UTF8.GetBytes(json), player);
-                // todo remove endpoint if no response
+                try
+                {
+                    Host?.SendAsync(Encoding.UTF8.GetBytes(json), remote);
+                }
+                catch
+                {
+                    RemovePlayer(remote);
+                }
             }
             printFieldForHost();
             packageData.Clear();
@@ -184,7 +189,6 @@ namespace ns_SnakeGame
             player.Timer.Elapsed += (sender, e) => SpawnFoodIfOneConsumedBy(player);
             player.Timer.Elapsed += (sender, e) => ChangeFieldAndPrint();
             player.Timer.AutoReset = true;
-            // todo expect OK acknowledgement
             AwakeSnake(player, false);
         }
         public void RemovePlayer(IPEndPoint controller)

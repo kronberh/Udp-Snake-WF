@@ -28,18 +28,33 @@
         /// </summary>
         private void InitializeComponent()
         {
+            IPAddressCopyButton = new Button();
             SuspendLayout();
+            // 
+            // IPAddressCopyButton
+            // 
+            IPAddressCopyButton.Dock = DockStyle.Bottom;
+            IPAddressCopyButton.Location = new Point(0, 474);
+            IPAddressCopyButton.Name = "IPAddressCopyButton";
+            IPAddressCopyButton.Size = new Size(532, 29);
+            IPAddressCopyButton.TabIndex = 0;
+            IPAddressCopyButton.TabStop = false;
+            IPAddressCopyButton.Text = "Copy IP:";
+            IPAddressCopyButton.UseVisualStyleBackColor = true;
             // 
             // HostForm
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(532, 503);
+            Controls.Add(IPAddressCopyButton);
             Name = "HostForm";
             Text = "Host";
             ResumeLayout(false);
         }
 
         #endregion
+
+        private Button IPAddressCopyButton;
     }
 }

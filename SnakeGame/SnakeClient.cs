@@ -8,7 +8,7 @@ namespace ns_SnakeGame
     {
         readonly Snake snake = Snake;
         readonly Timer timer = Timer;
-        readonly IPEndPoint? controller = Controller;
+        readonly IPEndPoint controller = Controller;
         public Snake Snake { get => snake; }
         public Timer Timer { get => timer; }
         public IPEndPoint? Controller { get => controller; }

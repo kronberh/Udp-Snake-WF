@@ -1,5 +1,4 @@
-﻿using System;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using ns_Data;
@@ -18,10 +17,11 @@ namespace Coursework_OnlineSnake
         {
             InitializeComponent();
             this.udpClient = udpClient;
-            this.Load += (senver, e) => grid?.ClearSelection();
+            this.Load += (senver, e) => grid.ClearSelection();
             this.FormClosed += (sender, e) =>
             {
-                udpClient.Send(Encoding.UTF8.GetBytes("Im leaving"));
+                CommunicationUnit message = new("Leave lobby");
+                udpClient.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message)));
                 Application.OpenForms[0]?.Show();
             };
             //snakeColor = selectedColor; // todo see line 13
@@ -39,7 +39,6 @@ namespace Coursework_OnlineSnake
                 CellBorderStyle = DataGridViewCellBorderStyle.None,
                 ColumnHeadersVisible = false,
                 Dock = DockStyle.Fill,
-                Enabled = false,
                 ReadOnly = true,
                 RowHeadersVisible = false
             };
@@ -53,7 +52,32 @@ namespace Coursework_OnlineSnake
                     row.Height = newRowHeight;
                 }
             };
+            grid.SelectionChanged += (sender, e) =>
+            {
+                grid.ClearSelection();
+            };
+            grid.KeyDown += (sender, e) =>
+            {
+                Direction? direction = e.KeyCode switch
+                {
+                    Keys.W => Direction.LEFT,
+                    Keys.S => Direction.RIGHT,
+                    Keys.A => Direction.UP,
+                    Keys.D => Direction.DOWN,
+                    Keys.Up => Direction.LEFT,
+                    Keys.Down => Direction.RIGHT,
+                    Keys.Left => Direction.UP,
+                    Keys.Right => Direction.DOWN,
+                    _ => null
+                };
+                if (direction.HasValue)
+                {
+                    CommunicationUnit message = new("Set direction") { Attachment = direction };
+                    udpClient.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message)));
+                }
+            };
             this.Controls.Add(grid);
+            grid.Select();
             Task.Run(async () =>
             {
                 while (udpClient.Client.Connected)
@@ -78,7 +102,8 @@ namespace Coursework_OnlineSnake
                                 DialogResult connectionErrorresponse = MessageBox.Show("You died. Press \"Retry\" to revive", "Important message", MessageBoxButtons.RetryCancel, MessageBoxIcon.Information);
                                 if (connectionErrorresponse == DialogResult.Retry)
                                 {
-                                    udpClient.Send(Encoding.UTF8.GetBytes("Pls revive me"));
+                                    CommunicationUnit message = new("Revive");
+                                    udpClient.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message)));
                                 }
                                 else
                                 {
@@ -93,32 +118,6 @@ namespace Coursework_OnlineSnake
                     }
                 }
             });
-            this.KeyDown += (sender, e) =>
-            {
-                switch (e.KeyCode)
-                {
-                    case Keys.W:
-                    case Keys.Up:
-                        udpClient.Send(Encoding.UTF8.GetBytes($"Pls set my direction to {Direction.LEFT}"));
-                        // todo expect acknowledgement
-                        break;
-                    case Keys.S:
-                    case Keys.Down:
-                        udpClient.Send(Encoding.UTF8.GetBytes($"Pls set my direction to {Direction.RIGHT}"));
-                        // todo expect acknowledgement
-                        break;
-                    case Keys.A:
-                    case Keys.Left:
-                        udpClient.Send(Encoding.UTF8.GetBytes($"Pls set my direction to {Direction.UP}"));
-                        // todo expect acknowledgement
-                        break;
-                    case Keys.D:
-                    case Keys.Right:
-                        udpClient.Send(Encoding.UTF8.GetBytes($"Pls set my direction to {Direction.DOWN}"));
-                        // todo expect acknowledgement
-                        break;
-                }
-            };
         }
     }
 }
