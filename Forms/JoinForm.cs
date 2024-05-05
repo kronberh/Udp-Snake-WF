@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.ComponentModel;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -171,6 +172,12 @@ namespace Coursework_OnlineSnake
                         case "You died":
                             GiveUpButton.Enabled = false;
                             ReviveButton.Enabled = true;
+                            break;
+                        case "Update players list":
+                            Invoke(new EventHandler(delegate
+                            {
+                                PlayersListbox.DataSource = ((JsonElement)message.Attachment).Deserialize<BindingList<string>>();
+                            }));
                             break;
                         // todo accept future subjects
                         default:

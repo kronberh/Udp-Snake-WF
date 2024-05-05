@@ -77,7 +77,7 @@ namespace Coursework_OnlineSnake
                     continue;
                 }
                 this.Hide();
-                new JoinForm(udpClient, NameTextbox.Text, selectedColor).Show();
+                new JoinForm(udpClient, ((PlayerData)message.Attachment).Name, selectedColor).Show(); // todo retrieve unique nickname
                 break;
             }
             while (true);

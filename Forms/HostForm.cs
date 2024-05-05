@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Windows.Forms;
 using ns_Data;
 using ns_SnakeGame;
 
@@ -12,6 +11,7 @@ namespace Coursework_OnlineSnake
     public partial class HostForm : Form
     {
         readonly UdpClient listener;
+        readonly BindingList<string> nicknamesList;
         SnakeGame game;
         Color[] fieldPaints = [Color.YellowGreen, Color.GreenYellow];
         Color snakeColor;
@@ -25,15 +25,20 @@ namespace Coursework_OnlineSnake
             this.listener = listener;
             IPLabel.Text = ((IPEndPoint)this.listener.Client.LocalEndPoint).Address.ToString();
             PortLabel.Text = ((IPEndPoint)this.listener.Client.LocalEndPoint).Port.ToString();
-            BindingList<string> nicknames = [name];
-            PlayersListbox.DataSource = nicknames;
-            nicknames.ListChanged += (sender, e) =>
+            nicknamesList = [name];
+            PlayersListbox.DataSource = nicknamesList;
+            nicknamesList.ListChanged += (sender, e) =>
             {
-                CommunicationUnit response = new("Update plauers list") { Attachment = nicknames };
+                CommunicationUnit response = new("Update players list") { Attachment = nicknamesList };
                 foreach (IPEndPoint remote in game?.Players.Skip(1).Select(x => x.Controller))
                 {
                     this.listener.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)), remote);
                 }
+                Invoke(new EventHandler(delegate
+                {
+                    PlayersListbox.DataSource = null;
+                    PlayersListbox.DataSource = nicknamesList;
+                }));
             };
             IPCopyButton.Click += (sender, e) => Clipboard.SetText(IPLabel.Text);
             PortCopyButton.Click += (sender, e) => Clipboard.SetText(PortLabel.Text);
@@ -175,8 +180,11 @@ namespace Coursework_OnlineSnake
                         },
                         () =>
                         {
-                            GiveUpButton.Enabled = false;
-                            ReviveButton.Enabled = true;
+                            Invoke(new EventHandler(delegate
+                            {
+                                GiveUpButton.Enabled = false;
+                                ReviveButton.Enabled = true;
+                            }));
                         },
                         fieldColors,
                         fieldPaints,
@@ -217,11 +225,10 @@ namespace Coursework_OnlineSnake
                                     CommunicationUnit response = new("Welcome");
                                     this.listener.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)), remote);
                                     game.AddPlayer(remote, name, color);
-                                    nicknames.Add(name); // todo test
+                                    nicknamesList.Add(name);
                                     break;
                                 case "Leave lobby":
-                                    string leavingName = game.PlayerByRemote(remote).Nickname;
-                                    nicknames.Remove(game.PlayerByRemote(remote).Nickname); // todo test
+                                    nicknamesList.Remove(game.PlayerByRemote(remote).Nickname);
                                     game.RemovePlayer(remote);
                                     break;
                                 default:
