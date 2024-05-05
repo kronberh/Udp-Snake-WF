@@ -174,8 +174,8 @@ namespace Coursework_OnlineSnake
                             break;
                         // todo accept future subjects
                         default:
-                            CommunicationUnit response = new("Error") { Attachment = "Cannot proceed the received request." };
-                            udpClient.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)));
+                            CommunicationUnit errorResponse = new("Error") { Attachment = "Cannot proceed the received request." };
+                            udpClient.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorResponse)));
                             break;
                     }
                 }

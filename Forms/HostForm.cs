@@ -225,7 +225,8 @@ namespace Coursework_OnlineSnake
                                     game.RemovePlayer(remote);
                                     break;
                                 default:
-                                    this.listener.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new CommunicationUnit("Error") { Attachment = "Cannot proceed the received request." })), remote);
+                                    CommunicationUnit errorResponse = new("Error") { Attachment = "Cannot proceed the received request." };
+                                    this.listener.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorResponse)), remote);
                                     break;
                             }
                         }

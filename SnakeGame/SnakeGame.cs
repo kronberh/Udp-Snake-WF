@@ -209,13 +209,13 @@ namespace ns_SnakeGame
             AwakeSnake(player, false);
             if (Players.Count == 1)
             {
-                CommunicationUnit message = new("Field data") { Attachment = currentFieldStateData };
-                string fieldJson = JsonSerializer.Serialize(message, FieldDataUnit.SerializerOptions);
-                Host.SendAsync(Encoding.UTF8.GetBytes(fieldJson), controller);
                 chatMessageForHost($"➡️ {name} started the server.");
             }
             else
             {
+                CommunicationUnit message = new("Field data") { Attachment = currentFieldStateData };
+                string fieldJson = JsonSerializer.Serialize(message, FieldDataUnit.SerializerOptions);
+                Host.SendAsync(Encoding.UTF8.GetBytes(fieldJson), controller);
                 SendChatMessageToAll($"➡️ {name} joined.");
             }
         }
