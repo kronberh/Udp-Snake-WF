@@ -13,15 +13,17 @@ namespace ns_SnakeGame
         readonly Color foodColor;
         readonly Color[] fieldColors;
         readonly Color[,] field;
-        readonly List<PackageData> packageData;
+        readonly List<FieldDataUnit> packageData;
         readonly Action printFieldForHost;
+        readonly Action<string> chatMessageForHost;
+        readonly Action scoreMessageForHost;
         readonly Action deathMessageForHost;
-        public readonly List<SnakeClient> Players;
+        public List<SnakeClient> Players { get; }
         Point foodCoords;
         public UdpClient Host { get; }
         public int PlayerCount { get => Players.Count; }
         public Snake HostSnake { get => Players[0].Snake; }
-        public SnakeGame(Action printFieldForHostFunc, Action deathMessageForHostFunc, Color[,] field, Color[] fieldColors, Color foodColor, UdpClient host, Color hostSnakeColor)
+        public SnakeGame(Action printFieldForHostFunc, Action<string> chatMessageForHostFunc, Action scoreMessageForHostFunc, Action deathMessageForHostFunc, Color[,] field, Color[] fieldColors, Color foodColor, UdpClient host, string hostName, Color hostSnakeColor)
         {
             this.field = field;
             this.fieldColors = fieldColors;
@@ -37,20 +39,19 @@ namespace ns_SnakeGame
                 }
             }
             this.Host = host;
-            SnakeClient hostClient = new(DefaultSnake(hostSnakeColor), new Timer());
-            this.AddPlayer((IPEndPoint)host.Client.LocalEndPoint, hostSnakeColor);
-            // todo add snake start pos to packageData
-            // todo add snake start collisions
             this.printFieldForHost = printFieldForHostFunc;
-            printFieldForHost();
+            this.chatMessageForHost = chatMessageForHostFunc;
+            this.scoreMessageForHost = scoreMessageForHostFunc;
             this.deathMessageForHost = deathMessageForHostFunc;
             SpawnFood();
+            Task.Run(() =>
+            {
+                this.AddPlayer((IPEndPoint)host.Client.LocalEndPoint, hostName, hostSnakeColor);
+                printFieldForHost();
+                scoreMessageForHost();
+            });
         }
-        Snake DefaultSnake(Color color)
-        {
-            return new Snake(color, 2, new Size(collisionField.GetLength(0), collisionField.GetLength(1)));
-        }
-        void DieIfDead(SnakeClient snakeClient)
+        void DieIfCollision(SnakeClient snakeClient)
         {
             if (collisionField[snakeClient.Snake.HeadNode.Value.Y, snakeClient.Snake.HeadNode.Value.X])
             {
@@ -64,9 +65,15 @@ namespace ns_SnakeGame
                 }
                 else
                 {
-                    Host?.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new CommunicationUnit("You died"))), snakeClient.Controller);
+                    Host.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new CommunicationUnit("You died"))), snakeClient.Controller);
                 }
+                SendChatMessageToAll($"☠️ {snakeClient.Nickname} died.");
             }
+        }
+        public void GiveUp(SnakeClient snakeClient)
+        {
+            Task.Run(() => DieForcefully(snakeClient));
+            SendChatMessageToAll($"☠️ {snakeClient.Nickname} gave up.");
         }
         void DieForcefully(SnakeClient snakeClient)
         {
@@ -105,8 +112,19 @@ namespace ns_SnakeGame
             if (snakeClient.Snake.HeadNode.Value == foodCoords)
             {
                 snakeClient.Snake.Grow();
-                snakeClient.Timer.Interval *= 0.95;
+                snakeClient.Timer.Interval *= 0.98;
                 SpawnFood();
+                if (snakeClient == Players[0])
+                {
+                    Task.Run(() =>
+                    {
+                        scoreMessageForHost();
+                    });
+                }
+                else
+                {
+                    Host.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new CommunicationUnit("New score") { Attachment = snakeClient.Snake.Count() })), snakeClient.Controller);
+                }
             }
         }
         void SpawnFood()
@@ -130,18 +148,18 @@ namespace ns_SnakeGame
             CommunicationUnit message = new("Field data");
             lock (packageData)
             {
-                foreach (PackageData package in packageData)
+                foreach (FieldDataUnit package in packageData)
                 {
                     field[package.X, package.Y] = package.Color;
                 }
                 message.Attachment = packageData.ToList();
             }
-            string json = JsonSerializer.Serialize(message, PackageData.SerializerOptions);
+            string json = JsonSerializer.Serialize(message, FieldDataUnit.SerializerOptions);
             foreach (IPEndPoint remote in Players.Skip(1).Select(x => x.Controller))
             {
                 try
                 {
-                    Host?.SendAsync(Encoding.UTF8.GetBytes(json), remote);
+                    Host.SendAsync(Encoding.UTF8.GetBytes(json), remote);
                 }
                 catch
                 {
@@ -151,11 +169,13 @@ namespace ns_SnakeGame
             printFieldForHost();
             packageData.Clear();
         }
-        public void AddPlayer(IPEndPoint controller, Color snakeColor)
+        public void AddPlayer(IPEndPoint controller, string name, Color snakeColor)
         {
-            SnakeClient player = new(DefaultSnake(snakeColor), new Timer(), controller);
+            SnakeClient player = new(name, DefaultSnake(snakeColor), new Timer(), controller);
             Players.Add(player);
-            List<PackageData> currentFieldStateData = [];
+            // todo add snake start pos to packageData
+            // todo add snake start collisions
+            List<FieldDataUnit> currentFieldStateData = [];
             for (int i = 0; i < collisionField.GetLength(0); i++)
             {
                 for (int j = 0; j < collisionField.GetLength(1); j++)
@@ -163,9 +183,6 @@ namespace ns_SnakeGame
                     currentFieldStateData.Add(new(i, j, field[i, j]));
                 }
             }
-            CommunicationUnit message = new("Field data") { Attachment = currentFieldStateData };
-            string fieldJson = JsonSerializer.Serialize(message, PackageData.SerializerOptions);
-            Host?.SendAsync(Encoding.UTF8.GetBytes(fieldJson), controller);
             player.Timer.Interval = 135;
             player.Timer.Elapsed += (sender, e) =>
             {
@@ -185,11 +202,22 @@ namespace ns_SnakeGame
                     packageData.Add(new(player.Snake.HeadNode.Value.X, player.Snake.HeadNode.Value.Y, player.Snake.Color));
                 }
             };
-            player.Timer.Elapsed += (sender, e) => DieIfDead(player);
+            player.Timer.Elapsed += (sender, e) => DieIfCollision(player);
             player.Timer.Elapsed += (sender, e) => SpawnFoodIfOneConsumedBy(player);
             player.Timer.Elapsed += (sender, e) => ChangeFieldAndPrint();
             player.Timer.AutoReset = true;
             AwakeSnake(player, false);
+            if (Players.Count == 1)
+            {
+                CommunicationUnit message = new("Field data") { Attachment = currentFieldStateData };
+                string fieldJson = JsonSerializer.Serialize(message, FieldDataUnit.SerializerOptions);
+                Host.SendAsync(Encoding.UTF8.GetBytes(fieldJson), controller);
+                chatMessageForHost($"➡️ {name} started the server.");
+            }
+            else
+            {
+                SendChatMessageToAll($"➡️ {name} joined.");
+            }
         }
         public void RemovePlayer(IPEndPoint controller)
         {
@@ -198,9 +226,10 @@ namespace ns_SnakeGame
                 DieForcefully(player);
                 player.Timer.Close();
                 Players.Remove(player);
+                SendChatMessageToAll($"⬅ {player.Nickname} left.");
             }
         }
-        public static void AwakeSnake(SnakeClient client, bool revive)
+        public void AwakeSnake(SnakeClient client, bool revive)
         {
             if (client.Timer.Enabled)
             {
@@ -211,17 +240,38 @@ namespace ns_SnakeGame
             if (revive)
             {
                 client.Snake.Reset();
+                SendChatMessageToAll($"✨ {client.Nickname} revived.");
             }
             client.Timer.Start();
+            if (client == Players[0])
+            {
+                scoreMessageForHost();
+            }
+            else
+            {
+                Host.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new CommunicationUnit("New score") { Attachment = client.Snake.Count() })), client.Controller);
+            }
         }
-        public void AcceptSetSnakeDirectionSignal(IPEndPoint remote, Direction direction)
+        public void SendChatMessageToAll(string message)
+        {
+            CommunicationUnit messageUnit = new("Message") { Attachment = message };
+            foreach (IPEndPoint r in Players.Skip(1).Select(x => x.Controller))
+            {
+                Host.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageUnit)), r);
+            }
+            chatMessageForHost(message);
+        }
+        public void SetSnakeDirection(IPEndPoint remote, Direction direction)
         {
             PlayerByRemote(remote)?.Snake.SetDirection(direction);
         }
-        // todo Ping func for getting ping (for future interface)
         public SnakeClient? PlayerByRemote(IPEndPoint remote)
         {
             return Players.Find(x => x.Controller?.Address.ToString() == remote.Address.ToString() && x.Controller.Port == remote.Port);
+        }
+        Snake DefaultSnake(Color color)
+        {
+            return new Snake(color, 2, new Size(collisionField.GetLength(0), collisionField.GetLength(1)));
         }
         Color FieldColor(int col, int row)
         {
@@ -240,7 +290,6 @@ namespace ns_SnakeGame
             foreach (Timer timer in Players.Select(x => x.Timer))
             {
                 timer.Stop();
-                // todo send GAME STOPPED acknowledgement
                 if (disposing)
                 {
                     timer.Close();

@@ -45,8 +45,8 @@ namespace Coursework_OnlineSnake
                     }
                     continue;
                 }
-                CommunicationUnit message = new("Join lobby") { Attachment = selectedColor };
-                exception = await udpClient.TrySendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message, PackageData.SerializerOptions)));
+                CommunicationUnit message = new("Join lobby") { Attachment = new PlayerData(string.IsNullOrEmpty(NameTextbox.Text) ? "guest" : NameTextbox.Text, selectedColor) };
+                exception = await udpClient.TrySendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message, PlayerData.SerializerOptions)));
                 if (exception != null)
                 {
                     udpClient.Close();
@@ -65,7 +65,7 @@ namespace Coursework_OnlineSnake
                     continue;
                 }
                 string responseJson = Encoding.UTF8.GetString(responseResult.Buffer);
-                CommunicationUnit response = JsonSerializer.Deserialize<CommunicationUnit>(responseJson, PackageData.SerializerOptions);
+                CommunicationUnit response = JsonSerializer.Deserialize<CommunicationUnit>(responseJson, FieldDataUnit.SerializerOptions);
                 if (response?.Subject != "Welcome")
                 {
                     udpClient.Close();
@@ -77,7 +77,7 @@ namespace Coursework_OnlineSnake
                     continue;
                 }
                 this.Hide();
-                new JoinForm(udpClient, selectedColor).Show();
+                new JoinForm(udpClient, NameTextbox.Text, selectedColor).Show();
                 break;
             }
             while (true);
@@ -87,7 +87,7 @@ namespace Coursework_OnlineSnake
             IPEndPoint localEndpoint = new(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 0);
             UdpClient listener = new(localEndpoint);
             this.Hide();
-            new HostForm(listener, selectedColor).Show();
+            new HostForm(listener, string.IsNullOrEmpty(NameTextbox.Text) ? "guest" : NameTextbox.Text, selectedColor).Show();
         }
     }
 }

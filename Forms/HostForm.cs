@@ -1,7 +1,9 @@
-﻿using System.Net;
+﻿using System.ComponentModel;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Windows.Forms;
 using ns_Data;
 using ns_SnakeGame;
 
@@ -14,22 +16,83 @@ namespace Coursework_OnlineSnake
         Color[] fieldPaints = [Color.YellowGreen, Color.GreenYellow];
         Color snakeColor;
         Color foodColor = Color.Red;
-        int fieldSize = 24;
+        readonly int fieldSize;
         readonly Color[,] fieldColors;
         readonly DataGridView grid;
-        public HostForm(UdpClient listener, Color selectedColor)
+        public HostForm(UdpClient listener, string name, Color selectedColor)
         {
             InitializeComponent();
             this.listener = listener;
-            IPAddressCopyButton.Text = $"Copy IP: {(IPEndPoint)this.listener.Client.LocalEndPoint}";
-            IPAddressCopyButton.Click += IPAddressCopyButton_Click;
-            this.Load += (sender, e) => grid.ClearSelection();
-            this.FormClosed += (sender, e) =>
+            IPLabel.Text = ((IPEndPoint)this.listener.Client.LocalEndPoint).Address.ToString();
+            PortLabel.Text = ((IPEndPoint)this.listener.Client.LocalEndPoint).Port.ToString();
+            BindingList<string> nicknames = [name];
+            PlayersListbox.DataSource = nicknames;
+            nicknames.ListChanged += (sender, e) =>
+            {
+                CommunicationUnit response = new("Update plauers list") { Attachment = nicknames };
+                foreach (IPEndPoint remote in game?.Players.Skip(1).Select(x => x.Controller))
+                {
+                    this.listener.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)), remote);
+                }
+            };
+            IPCopyButton.Click += (sender, e) => Clipboard.SetText(IPLabel.Text);
+            PortCopyButton.Click += (sender, e) => Clipboard.SetText(PortLabel.Text);
+            IPShowHideButton.Click += (sender, e) =>
+            {
+                switch (IPLabel.BackColor == Color.Black)
+                {
+                    case true:
+                        IPLabel.BackColor = Color.Transparent;
+                        IPShowHideButton.Text = "Hide";
+                        break;
+                    case false:
+                        IPLabel.BackColor = Color.Black; ;
+                        IPShowHideButton.Text = "Show";
+                        break;
+                }
+            };
+            PortShowHideButton.Click += (sender, e) =>
+            {
+                switch (PortLabel.BackColor == Color.Black)
+                {
+                    case true:
+                        PortLabel.BackColor = Color.Transparent;
+                        PortShowHideButton.Text = "Hide";
+                        break;
+                    case false:
+                        PortLabel.BackColor = Color.Black;
+                        PortShowHideButton.Text = "Show";
+                        break;
+                }
+            };
+            SendMessageButton.Click += (sender, e) =>
+            {
+                if (string.IsNullOrEmpty(MessageTextbox.Text))
+                {
+                    return;
+                }
+                game?.SendChatMessageToAll($"💬 {name}: {MessageTextbox.Text}");
+                MessageTextbox.Clear();
+            };
+            ReviveButton.Click += (sender, e) =>
+            {
+                game?.AwakeSnake(game.Players[0], true);
+                ReviveButton.Enabled = false;
+                GiveUpButton.Enabled = true;
+            };
+            GiveUpButton.Click += (sender, e) => {
+                game?.GiveUp(game.Players[0]);
+                GiveUpButton.Enabled = false;
+                ReviveButton.Enabled = true;
+            };
+            Load += (sender, e) => grid.ClearSelection();
+            FormClosed += (sender, e) =>
             {
                 // todo await send HOSTISLEAVING message
                 listener.Close();
                 Application.OpenForms[0]?.Show();
             };
+            fieldSize = 24;
             snakeColor = selectedColor;
             fieldColors = new Color[fieldSize, fieldSize];
             grid = new()
@@ -84,59 +147,86 @@ namespace Coursework_OnlineSnake
                         break;
                 }
             };
-            this.Controls.Add(grid);
-            this.Shown += (sender, e) =>
+            Controls.Add(grid);
+            Controls.SetChildIndex(grid, 0);
+            Shown += (sender, e) =>
             {
                 Task.Run(() =>
                 {
                     game = new(
                         grid.Invalidate,
+                        msg =>
+                        {
+                            Invoke(new EventHandler(delegate
+                            {
+                                ChatTextbox.AppendText(msg + Environment.NewLine);
+                            }));
+                        },
                         () =>
                         {
-                            DialogResult connectionErrorresponse = MessageBox.Show("You died. Press \"Retry\" to revive", "Important message", MessageBoxButtons.RetryCancel, MessageBoxIcon.Information);
-                            if (connectionErrorresponse == DialogResult.Retry)
+                            try
                             {
-                                SnakeGame.AwakeSnake(game.Players[0], true);
+                                Invoke(new EventHandler(delegate
+                                {
+                                    ScoreLabel.Text = game?.HostSnake.Count().ToString();
+                                }));
                             }
+                            catch { /* occures once when listener is disposed; needs to be ignored */ }
+                        },
+                        () =>
+                        {
+                            GiveUpButton.Enabled = false;
+                            ReviveButton.Enabled = true;
                         },
                         fieldColors,
                         fieldPaints,
                         foodColor,
                         listener,
+                        name,
                         snakeColor
                     );
                 });
                 Task.Run(() =>
                 {
-                    while (this.listener != null)
+                    while (true)
                     {
                         IPEndPoint remote = new(IPAddress.Any, 0);
                         try
                         {
                             string json = Encoding.UTF8.GetString(listener.Receive(ref remote));
-                            CommunicationUnit request = JsonSerializer.Deserialize<CommunicationUnit>(json, PackageData.SerializerOptions);
-                            if (request?.Subject == "Set direction")
+                            CommunicationUnit request = JsonSerializer.Deserialize<CommunicationUnit>(json, FieldDataUnit.SerializerOptions);
+                            switch (request?.Subject)
                             {
-                                game.AcceptSetSnakeDirectionSignal(remote, ((JsonElement)request.Attachment).Deserialize<Direction>());
-                            }
-                            else if (request?.Subject == "Revive")
-                            {
-                                SnakeGame.AwakeSnake(game.PlayerByRemote(remote), true);
-                            }
-                            else if (request?.Subject == "Join lobby")
-                            {
-                                Color color = ((JsonElement)request.Attachment).Deserialize<Color>(PackageData.SerializerOptions);
-                                CommunicationUnit response = new("Welcome");
-                                this.listener.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)), remote);
-                                game.AddPlayer(remote, color);
-                            }
-                            else if (request?.Subject == "Leave lobby")
-                            {
-                                game.RemovePlayer(remote);
-                            }
-                            else
-                            {
-                                // send IDK WYM message/acknowledgement
+                                case "Set direction":
+                                    game.SetSnakeDirection(remote, ((JsonElement)request.Attachment).Deserialize<Direction>());
+                                    break;
+                                case "Message":
+                                    game.SendChatMessageToAll(request.Attachment.ToString());
+                                    break;
+                                case "Revive":
+                                    game.AwakeSnake(game.PlayerByRemote(remote), true);
+                                    break;
+                                case "Give up":
+                                    game.GiveUp(game.PlayerByRemote(remote));
+                                    break;
+                                case "Join lobby":
+                                    PlayerData playerData = ((JsonElement)request.Attachment).Deserialize<PlayerData>(PlayerData.SerializerOptions);
+                                    string name = playerData.Name;
+                                    // todo check name uniqueness
+                                    Color color = playerData.Color;
+                                    CommunicationUnit response = new("Welcome");
+                                    this.listener.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)), remote);
+                                    game.AddPlayer(remote, name, color);
+                                    nicknames.Add(name); // todo test
+                                    break;
+                                case "Leave lobby":
+                                    string leavingName = game.PlayerByRemote(remote).Nickname;
+                                    nicknames.Remove(game.PlayerByRemote(remote).Nickname); // todo test
+                                    game.RemovePlayer(remote);
+                                    break;
+                                default:
+                                    this.listener.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new CommunicationUnit("Error") { Attachment = "Cannot proceed the received request." })), remote);
+                                    break;
                             }
                         }
                         catch (ObjectDisposedException)
@@ -144,14 +234,10 @@ namespace Coursework_OnlineSnake
                             game.Dispose();
                             break;
                         }
-                        catch { /* occures once when listener is disposed min function; needs to be ignored */ }
+                        catch { /* occures once when listener is disposed; needs to be ignored */ }
                     }
                 });
             };
-        }
-        private void IPAddressCopyButton_Click(object? sender, EventArgs e)
-        {
-            Clipboard.SetText(((IPEndPoint)listener.Client.LocalEndPoint).Address.ToString());
         }
     }
 }

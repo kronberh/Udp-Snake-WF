@@ -33,28 +33,28 @@ namespace ns_SnakeGame
                     {
                         bodyCoords.AddLast(new Point(startPoint.X, startPoint.Y + 1));
                     }
-                    MoveHeadEvent = MoveHeadRight;
+                    MoveHeadEvent = MoveHeadUp;
                     break;
                 case 1:
                     for (int i = 0; i < this.startLength; i++)
                     {
                         bodyCoords.AddLast(new Point(startPoint.X, startPoint.Y - 1));
                     }
-                    MoveHeadEvent = MoveHeadLeft;
+                    MoveHeadEvent = MoveHeadDown;
                     break;
                 case 2:
                     for (int i = 0; i < this.startLength; i++)
                     {
                         bodyCoords.AddLast(new Point(startPoint.X + 1, startPoint.Y));
                     }
-                    MoveHeadEvent = MoveHeadUp;
+                    MoveHeadEvent = MoveHeadRight;
                     break;
                 case 3:
                     for (int i = 0; i < this.startLength; i++)
                     {
                         bodyCoords.AddLast(new Point(startPoint.X - 1, startPoint.Y));
                     }
-                    MoveHeadEvent = MoveHeadDown;
+                    MoveHeadEvent = MoveHeadLeft;
                     break;
             }
         }

@@ -38,6 +38,8 @@
             PortNumeric = new NumericUpDown();
             SingleplayerTab = new TabPage();
             CharacterTab = new TabPage();
+            NameTextbox = new TextBox();
+            label5 = new Label();
             ColorHexTextbox = new TextBox();
             label2 = new Label();
             ColorsCombobox = new ComboBox();
@@ -153,6 +155,8 @@
             // 
             // CharacterTab
             // 
+            CharacterTab.Controls.Add(NameTextbox);
+            CharacterTab.Controls.Add(label5);
             CharacterTab.Controls.Add(ColorHexTextbox);
             CharacterTab.Controls.Add(label2);
             CharacterTab.Controls.Add(ColorsCombobox);
@@ -165,22 +169,38 @@
             CharacterTab.Text = "Character";
             CharacterTab.UseVisualStyleBackColor = true;
             // 
+            // NameTextbox
+            // 
+            NameTextbox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            NameTextbox.Location = new Point(633, 3);
+            NameTextbox.Name = "NameTextbox";
+            NameTextbox.Size = new Size(151, 27);
+            NameTextbox.TabIndex = 16;
+            // 
+            // label5
+            // 
+            label5.Location = new Point(8, 6);
+            label5.Name = "label5";
+            label5.Size = new Size(62, 25);
+            label5.TabIndex = 15;
+            label5.Text = "Name";
+            // 
             // ColorHexTextbox
             // 
             ColorHexTextbox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             ColorHexTextbox.CharacterCasing = CharacterCasing.Upper;
-            ColorHexTextbox.Location = new Point(683, 37);
+            ColorHexTextbox.Location = new Point(683, 70);
             ColorHexTextbox.Name = "ColorHexTextbox";
+            ColorHexTextbox.ReadOnly = true;
             ColorHexTextbox.Size = new Size(101, 27);
             ColorHexTextbox.TabIndex = 14;
             // 
             // label2
             // 
-            label2.AutoSize = true;
             label2.Font = new Font("Segoe UI", 9F);
-            label2.Location = new Point(8, 11);
+            label2.Location = new Point(8, 36);
             label2.Name = "label2";
-            label2.Size = new Size(45, 20);
+            label2.Size = new Size(66, 61);
             label2.TabIndex = 13;
             label2.Text = "Color";
             // 
@@ -188,7 +208,7 @@
             // 
             ColorsCombobox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             ColorsCombobox.FormattingEnabled = true;
-            ColorsCombobox.Location = new Point(633, 3);
+            ColorsCombobox.Location = new Point(633, 36);
             ColorsCombobox.Name = "ColorsCombobox";
             ColorsCombobox.Size = new Size(151, 28);
             ColorsCombobox.TabIndex = 9;
@@ -198,7 +218,7 @@
             label1.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             label1.Font = new Font("Segoe UI", 12F);
             label1.ImageAlign = ContentAlignment.MiddleRight;
-            label1.Location = new Point(659, 37);
+            label1.Location = new Point(659, 70);
             label1.Name = "label1";
             label1.Size = new Size(18, 27);
             label1.TabIndex = 12;
@@ -209,7 +229,7 @@
             ColorShowcasePalette.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             ColorShowcasePalette.BackColor = Color.White;
             ColorShowcasePalette.BorderStyle = BorderStyle.FixedSingle;
-            ColorShowcasePalette.Location = new Point(633, 37);
+            ColorShowcasePalette.Location = new Point(633, 70);
             ColorShowcasePalette.Name = "ColorShowcasePalette";
             ColorShowcasePalette.Size = new Size(20, 27);
             ColorShowcasePalette.TabIndex = 11;
@@ -267,5 +287,7 @@
         private NumericUpDown PortNumeric;
         private Label label4;
         private Label label3;
+        private Label label5;
+        private TextBox NameTextbox;
     }
 }
