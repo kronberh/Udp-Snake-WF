@@ -54,9 +54,10 @@
             IPLabel = new Label();
             tabControl3 = new TabControl();
             MenuTab = new TabPage();
-            SkinTab = new TabPage();
             GiveUpButton = new Button();
             ReviveButton = new Button();
+            SkinTab = new TabPage();
+            KickBanNoteTextbox = new TextBox();
             tabControl1.SuspendLayout();
             PlayersTab.SuspendLayout();
             panel1.SuspendLayout();
@@ -85,6 +86,7 @@
             // 
             PlayersTab.Controls.Add(PlayersListbox);
             PlayersTab.Controls.Add(panel1);
+            PlayersTab.Controls.Add(KickBanNoteTextbox);
             PlayersTab.Location = new Point(4, 29);
             PlayersTab.Name = "PlayersTab";
             PlayersTab.Padding = new Padding(3);
@@ -99,7 +101,7 @@
             PlayersListbox.FormattingEnabled = true;
             PlayersListbox.Location = new Point(3, 3);
             PlayersListbox.Name = "PlayersListbox";
-            PlayersListbox.Size = new Size(386, 531);
+            PlayersListbox.Size = new Size(386, 504);
             PlayersListbox.TabIndex = 0;
             // 
             // panel1
@@ -107,7 +109,7 @@
             panel1.Controls.Add(KickButton);
             panel1.Controls.Add(BanButton);
             panel1.Dock = DockStyle.Bottom;
-            panel1.Location = new Point(3, 534);
+            panel1.Location = new Point(3, 507);
             panel1.Name = "panel1";
             panel1.Size = new Size(386, 32);
             panel1.TabIndex = 1;
@@ -345,16 +347,6 @@
             MenuTab.Text = "Menu";
             MenuTab.UseVisualStyleBackColor = true;
             // 
-            // SkinTab
-            // 
-            SkinTab.Location = new Point(4, 29);
-            SkinTab.Name = "SkinTab";
-            SkinTab.Padding = new Padding(3);
-            SkinTab.Size = new Size(417, 130);
-            SkinTab.TabIndex = 1;
-            SkinTab.Text = "Skin";
-            SkinTab.UseVisualStyleBackColor = true;
-            // 
             // GiveUpButton
             // 
             GiveUpButton.Anchor = AnchorStyles.Right;
@@ -376,6 +368,25 @@
             ReviveButton.Text = "Revive";
             ReviveButton.UseVisualStyleBackColor = true;
             // 
+            // SkinTab
+            // 
+            SkinTab.Location = new Point(4, 29);
+            SkinTab.Name = "SkinTab";
+            SkinTab.Padding = new Padding(3);
+            SkinTab.Size = new Size(417, 130);
+            SkinTab.TabIndex = 1;
+            SkinTab.Text = "Skin";
+            SkinTab.UseVisualStyleBackColor = true;
+            // 
+            // KickBanNoteTextbox
+            // 
+            KickBanNoteTextbox.Dock = DockStyle.Bottom;
+            KickBanNoteTextbox.Location = new Point(3, 539);
+            KickBanNoteTextbox.Name = "KickBanNoteTextbox";
+            KickBanNoteTextbox.Size = new Size(386, 27);
+            KickBanNoteTextbox.TabIndex = 4;
+            KickBanNoteTextbox.Text = "Reason: ";
+            // 
             // HostForm
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -390,6 +401,7 @@
             WindowState = FormWindowState.Maximized;
             tabControl1.ResumeLayout(false);
             PlayersTab.ResumeLayout(false);
+            PlayersTab.PerformLayout();
             panel1.ResumeLayout(false);
             ChatTab.ResumeLayout(false);
             ChatTab.PerformLayout();
@@ -433,5 +445,6 @@
         private Label label3;
         private Button GiveUpButton;
         private Button ReviveButton;
+        private TextBox KickBanNoteTextbox;
     }
 }

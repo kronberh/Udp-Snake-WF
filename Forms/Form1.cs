@@ -3,31 +3,41 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using ns_Data;
-using ns_UdpClientExtensionMethods;
+using ns_ExtensionMethods;
 
 namespace Coursework_OnlineSnake
 {
     public partial class MainMenuForm : Form
     {
-        Color selectedColor;
         public MainMenuForm()
         {
             InitializeComponent();
             List<Color> systemColors = typeof(SystemColors).GetProperties().Select(x => (Color)x.GetValue(null)).ToList();
             foreach (KnownColor color in Enum.GetValues<KnownColor>().Where(x => !systemColors.Contains(Color.FromKnownColor(x)) && x != KnownColor.Transparent))
             {
-                ColorsCombobox.Items.Add(color);
+                SnakeColorCombobox.Items.Add(color);
+                AddFieldColorCombobox.Items.Add(color);
+                FoodColorCombobox.Items.Add(color);
             }
-            ColorsCombobox.SelectedValueChanged += ColorsCombobox_SelectedValueChanged;
-            ColorsCombobox.SelectedIndex = ColorsCombobox.FindStringExact(Color.Black.Name);
+            SnakeColorCombobox.SelectedValueChanged += ColorsCombobox_SelectedValueChanged;
+            SnakeColorCombobox.SelectedIndex = SnakeColorCombobox.FindStringExact(Color.Black.Name);
+            FoodColorCombobox.SelectedIndex = SnakeColorCombobox.FindStringExact(Color.Red.Name);
+            AddFieldColorCombobox.SelectedValueChanged += AddFieldColorCombobox_SelectedValueChanged;
+            FieldColorsListbox.Items.Add(Color.YellowGreen);
+            FieldColorsListbox.Items.Add(Color.GreenYellow);
             JoinButton.Click += JoinButton_Click;
             HostButton.Click += HostButton_Click;
+            ClearFieldColorsButton.Click += ClearFieldColorsButton_Click;
         }
         private void ColorsCombobox_SelectedValueChanged(object? sender, EventArgs e)
         {
-            selectedColor = Color.FromKnownColor((KnownColor)ColorsCombobox.SelectedItem);
+            Color selectedColor = Color.FromKnownColor((KnownColor)SnakeColorCombobox.SelectedItem);
             ColorHexTextbox.Text = $"{selectedColor.R:X2}{selectedColor.G:X2}{selectedColor.B:X2}";
             ColorShowcasePalette.BackColor = selectedColor;
+        }
+        private void AddFieldColorCombobox_SelectedValueChanged(object? sender, EventArgs e)
+        {
+            FieldColorsListbox.Items.Add(Color.FromKnownColor((KnownColor)AddFieldColorCombobox.SelectedItem));
         }
         private async void JoinButton_Click(object? sender, EventArgs e)
         {
@@ -45,8 +55,8 @@ namespace Coursework_OnlineSnake
                     }
                     continue;
                 }
-                CommunicationUnit message = new("Join lobby") { Attachment = new PlayerData(string.IsNullOrEmpty(NameTextbox.Text) ? "guest" : NameTextbox.Text, selectedColor) };
-                exception = await udpClient.TrySendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message, PlayerData.SerializerOptions)));
+                CommunicationUnit message = new("Join lobby") { Attachment = new JoiningPlayerData(string.IsNullOrEmpty(NameTextbox.Text) ? "guest" : NameTextbox.Text, Color.FromKnownColor((KnownColor)SnakeColorCombobox.SelectedItem)) };
+                exception = await udpClient.TrySendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message, JoiningPlayerData.SerializerOptions)));
                 if (exception != null)
                 {
                     udpClient.Close();
@@ -76,8 +86,9 @@ namespace Coursework_OnlineSnake
                     }
                     continue;
                 }
+                JoinedPlayerData info = ((JsonElement)response.Attachment).Deserialize<JoinedPlayerData>();
                 this.Hide();
-                new JoinForm(udpClient, ((PlayerData)message.Attachment).Name, selectedColor).Show(); // todo retrieve unique nickname
+                new JoinForm(udpClient, info.FieldSize, info.Name, Color.FromKnownColor((KnownColor)SnakeColorCombobox.SelectedItem)).Show();
                 break;
             }
             while (true);
@@ -87,7 +98,11 @@ namespace Coursework_OnlineSnake
             IPEndPoint localEndpoint = new(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 0);
             UdpClient listener = new(localEndpoint);
             this.Hide();
-            new HostForm(listener, string.IsNullOrEmpty(NameTextbox.Text) ? "guest" : NameTextbox.Text, selectedColor).Show();
+            new HostForm(listener, string.IsNullOrEmpty(NameTextbox.Text) ? "guest" : NameTextbox.Text, Color.FromKnownColor((KnownColor)SnakeColorCombobox.SelectedItem), (int)FieldSizeNumeric.Value, Color.FromKnownColor((KnownColor)FoodColorCombobox.SelectedItem), (FieldColorsListbox.Items.Count == 0) ? [Color.YellowGreen, Color.GreenYellow] : FieldColorsListbox.Items.Cast<Color>().ToArray()).Show();
+        }
+        private void ClearFieldColorsButton_Click(object? sender, EventArgs e)
+        {
+            FieldColorsListbox.Items.Clear();
         }
     }
 }

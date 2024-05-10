@@ -13,15 +13,17 @@ namespace Coursework_OnlineSnake
         readonly UdpClient udpClient;
         readonly int fieldSize;
         //readonly string name;  // todo use it to draw nametag as "you"
-        //Color snakeColor; // todo make it possible to change color
+        //Color snakeColor; // todo make it changeable
         readonly Color[,] fieldColors;
         readonly DataGridView grid;
-        public JoinForm(UdpClient udpClient, string name, Color selectedColor)
+        public JoinForm(UdpClient udpClient, int fieldSize, string name, Color selectedColor)
         {
             InitializeComponent();
             this.udpClient = udpClient;
             IPLabel.Text = ((IPEndPoint)this.udpClient.Client.RemoteEndPoint).Address.ToString();
             PortLabel.Text = ((IPEndPoint)this.udpClient.Client.RemoteEndPoint).Port.ToString();
+            PlayersListbox.DisplayMember = "Nickname";
+            PlayersListbox.ValueMember = "Controller";
             IPCopyButton.Click += (sender, e) => Clipboard.SetText(IPLabel.Text);
             PortCopyButton.Click += (sender, e) => Clipboard.SetText(PortLabel.Text);
             IPShowHideButton.Click += (sender, e) =>
@@ -33,7 +35,7 @@ namespace Coursework_OnlineSnake
                         IPShowHideButton.Text = "Hide";
                         break;
                     case false:
-                        IPLabel.BackColor = Color.Black; ;
+                        IPLabel.BackColor = Color.Black;
                         IPShowHideButton.Text = "Show";
                         break;
                 }
@@ -47,7 +49,7 @@ namespace Coursework_OnlineSnake
                         PortShowHideButton.Text = "Hide";
                         break;
                     case false:
-                        PortLabel.BackColor = Color.Black; ;
+                        PortLabel.BackColor = Color.Black;
                         PortShowHideButton.Text = "Show";
                         break;
                 }
@@ -69,24 +71,24 @@ namespace Coursework_OnlineSnake
                 ReviveButton.Enabled = false;
                 GiveUpButton.Enabled = true;
             };
-            ReviveButton.Click += (sender, e) =>
+            GiveUpButton.Click += (sender, e) =>
             {
                 CommunicationUnit message = new("Give up");
                 udpClient.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message)));
                 GiveUpButton.Enabled = false;
                 ReviveButton.Enabled = true;
             };
-            this.Load += (senver, e) => grid.ClearSelection();
-            this.FormClosed += (sender, e) =>
+            Load += (senver, e) => grid.ClearSelection();
+            FormClosed += (sender, e) =>
             {
                 CommunicationUnit message = new("Leave lobby");
                 udpClient.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message)));
                 Application.OpenForms[0]?.Show();
             };
-            fieldSize = 24;
-            //this.name = name; // todo see line 14
-            //snakeColor = selectedColor; // todo see line 15
-            fieldColors = new Color[fieldSize, fieldSize];
+            this.fieldSize = fieldSize;
+            //this.name = name; // todo see line 15
+            //snakeColor = selectedColor; // todo see line 16
+            fieldColors = new Color[this.fieldSize, this.fieldSize];
             grid = new()
             {
                 ColumnCount = fieldColors.GetLength(0),
@@ -137,8 +139,8 @@ namespace Coursework_OnlineSnake
                     udpClient.Send(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message)));
                 }
             };
-            this.Controls.Add(grid);
-            this.Controls.SetChildIndex(grid, 0);
+            Controls.Add(grid);
+            Controls.SetChildIndex(grid, 0);
             grid.Select();
             Task.Run(async () =>
             {
@@ -158,7 +160,7 @@ namespace Coursework_OnlineSnake
                             grid.Invalidate();
                             break;
                         case "New score":
-                            this.Invoke(new EventHandler(delegate
+                            Invoke(new EventHandler(delegate
                             {
                                 ScoreLabel.Text = message.Attachment?.ToString();
                             }));
@@ -176,10 +178,21 @@ namespace Coursework_OnlineSnake
                         case "Update players list":
                             Invoke(new EventHandler(delegate
                             {
-                                PlayersListbox.DataSource = ((JsonElement)message.Attachment).Deserialize<BindingList<string>>();
+                                PlayersListbox.DataSource = ((JsonElement)message.Attachment).Deserialize<BindingList<UserData>>();
                             }));
                             break;
-                        // todo accept future subjects
+                        case "Shutdown":
+                            // todo announce shutdown
+                            Close();
+                            break;
+                        case "Kicked":
+                            // todo announce kick
+                            Close();
+                            break;
+                        case "Banned":
+                            // todo announce ban
+                            Close();
+                            break;
                         default:
                             CommunicationUnit errorResponse = new("Error") { Attachment = "Cannot proceed the received request." };
                             udpClient.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorResponse)));

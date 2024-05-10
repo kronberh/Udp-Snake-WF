@@ -257,7 +257,11 @@ namespace ns_SnakeGame
             CommunicationUnit messageUnit = new("Message") { Attachment = message };
             foreach (IPEndPoint r in Players.Skip(1).Select(x => x.Controller))
             {
-                Host.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageUnit)), r);
+                try
+                {
+                    Host.SendAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageUnit)), r);
+                }
+                catch { /* occurs when remote is disposed */ }
             }
             chatMessageForHost(message);
         }
